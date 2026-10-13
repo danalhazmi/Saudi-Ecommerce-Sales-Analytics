@@ -1,0 +1,129 @@
+table Calendar
+	lineageTag: 16e413b5-2b0d-4378-a0dc-73a3bbe900c9
+	dataCategory: Time
+
+	measure 'Sales Validation' =
+			
+			SUM('Sheet1'[Sales_Thousands_SAR]) * 1000
+		lineageTag: ae98ae14-0346-4a5b-85dc-30257861db7d
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Latest Full Year Growth' =
+			
+			VAR LatestFullYear =
+			    MAXX(
+			        FILTER(
+			            ALL('Calendar'[Year]),
+			            'Calendar'[Year] < YEAR(TODAY())
+			        ),
+			        'Calendar'[Year]
+			    )
+			RETURN
+			    CALCULATE(
+			        [Sales YoY %],
+			        REMOVEFILTERS('Calendar'),
+			        'Calendar'[Year] = LatestFullYear
+			    )
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: c342400f-2ec7-40a7-8134-606aef5cd34a
+
+	measure 'Average Monthly Sales' =
+			
+			AVERAGEX(
+			    VALUES('Calendar'[Year]),
+			    DIVIDE([Total Sales], 12)
+			)
+		formatString: "⃁"\ #,0.00;#,0.00\ -"⃁";"⃁"\ #,0.00
+		lineageTag: 9cf4b9bc-6554-47e3-acd2-0035213bfebe
+
+		annotation PBI_FormatHint = {"currencyCulture":"ar-SA"}
+
+	measure Measure
+		lineageTag: b7339581-3cfd-4f73-9381-fb34b2c0a369
+
+		annotation 43dbc3e8-3a1c-4b6f-9923-b49ff7d6691c = True
+
+	measure 'Highest Monthly Sales' =
+			
+			MAXX(
+			    VALUES('Sheet1'[Transaction_Date]),
+			    [Total Sales]
+			)
+		formatString: "⃁"\ #,0.00;#,0.00\ -"⃁";"⃁"\ #,0.00
+		lineageTag: c0028f8e-836c-4a0d-ac74-09d344f7dbb4
+
+		annotation PBI_FormatHint = {"currencyCulture":"ar-SA"}
+
+	measure 'Lowest Monthly Sales' =
+			
+			MINX(
+			    VALUES('Sheet1'[Transaction_Date]),
+			    [Total Sales]
+			)
+		formatString: "⃁"\ #,0.00;#,0.00\ -"⃁";"⃁"\ #,0.00
+		lineageTag: d8565cc0-610a-48ad-b7dc-64bd2a179890
+
+		annotation PBI_FormatHint = {"currencyCulture":"ar-SA"}
+
+	measure 'Monthly Sales Range' =
+			
+			[Highest Monthly Sales] - [Lowest Monthly Sales]
+		formatString: "⃁"\ #,0.00;#,0.00\ -"⃁";"⃁"\ #,0.00
+		lineageTag: 67812de4-2031-4e61-8098-3a4a0f28f816
+
+		annotation PBI_FormatHint = {"currencyCulture":"ar-SA"}
+
+	column Date
+		isKey
+		formatString: Long Date
+		lineageTag: ea93fb26-9883-4d83-9a68-8821153b6791
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Date]
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column Year = YEAR('Calendar'[Date])
+		formatString: 0
+		lineageTag: 74b7111f-5ef9-402f-9a03-0e6c1dc3c3cb
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column Column
+		type: calculated
+		lineageTag: c72223eb-3dc8-4ebf-bdfb-6f2200780311
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation 43dbc3e8-3a1c-4b6f-9923-b49ff7d6691c = True
+
+	column 'Month Name' = FORMAT('Calendar'[Date], "MMM")
+		lineageTag: 39a1a9af-b337-4b7e-830d-5e0dec47b234
+		summarizeBy: none
+		sortByColumn: 'Month Number'
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Month Number' = MONTH('Calendar'[Date])
+		formatString: 0
+		lineageTag: 031958f5-9403-4976-8ce0-5a116f85929d
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Calendar = calculated
+		mode: import
+		source =
+				
+				CALENDAR(
+				    MIN('Sheet1'[Transaction_Date]),
+				    MAX('Sheet1'[Transaction_Date])
+				)
+
+	annotation PBI_Id = 5a2503b7301d4da3b7c354abe37182a6
+
