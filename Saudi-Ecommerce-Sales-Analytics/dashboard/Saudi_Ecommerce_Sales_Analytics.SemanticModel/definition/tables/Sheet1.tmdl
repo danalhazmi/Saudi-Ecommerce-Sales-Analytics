@@ -1,0 +1,158 @@
+table Sheet1
+	lineageTag: bad8fa69-cb89-4a22-a8bf-638cfb818b5d
+
+	measure 'Total Sales' = SUM('Sheet1'[Sales_SAR])
+		formatString: "⃁"\ #,0.00;#,0.00\ -"⃁";"⃁"\ #,0.00
+		lineageTag: 98fcfac2-69d3-4acc-8d57-1a61ff8899ab
+
+		annotation PBI_FormatHint = {"currencyCulture":"ar-SA"}
+
+	measure 'Total Transactions' = SUM('Sheet1'[Transactions])
+		formatString: 0
+		lineageTag: 0a688e9a-aae6-4579-8818-3c690c6b7aac
+
+	measure 'Average Transaction Value' =
+			
+			DIVIDE([Total Sales], [Total Transactions], 0)
+		formatString: "⃁"\ #,0.00;#,0.00\ -"⃁";"⃁"\ #,0.00
+		lineageTag: e0f13dea-b225-4d0e-8f1b-9c5855579ed9
+
+		annotation PBI_FormatHint = {"currencyCulture":"ar-SA"}
+
+	measure 'Previous Year Sales' =
+			
+			VAR LastDateWithSales =
+			    CALCULATE(
+			        MAX('Sheet1'[Transaction_Date]),
+			        REMOVEFILTERS('Calendar')
+			    )
+			VAR CurrentPeriodDates =
+			    FILTER(
+			        VALUES('Calendar'[Date]),
+			        'Calendar'[Date] <= LastDateWithSales
+			    )
+			RETURN
+			    CALCULATE(
+			        [Total Sales],
+			        SAMEPERIODLASTYEAR(CurrentPeriodDates)
+			    )
+		formatString: "⃁"\ #,0.00;#,0.00\ -"⃁";"⃁"\ #,0.00
+		lineageTag: 4a28f14c-61bd-4fe3-91ba-24180f6e4bcd
+
+		annotation PBI_FormatHint = {"currencyCulture":"ar-SA"}
+
+	measure 'Sales YoY %' =
+			
+			VAR PreviousSales = [Previous Year Sales]
+			RETURN
+			IF(
+			    NOT ISBLANK(PreviousSales) && PreviousSales <> 0,
+			    DIVIDE([Total Sales] - PreviousSales, PreviousSales),
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: a32ecb21-a5c3-45b9-8a96-52b4c6fed9bf
+
+	column Year
+		dataType: int64
+		formatString: 0
+		lineageTag: c82df497-36a2-4270-9291-ab03b81f3649
+		summarizeBy: sum
+		sourceColumn: Year
+
+		annotation SummarizationSetBy = Automatic
+
+	column Month
+		dataType: string
+		lineageTag: bb4e0352-348b-4c4d-8e39-670b464b6135
+		summarizeBy: none
+		sourceColumn: Month
+
+		annotation SummarizationSetBy = Automatic
+
+	column Sales_Thousands_SAR
+		dataType: double
+		lineageTag: 7e09d031-2362-42ad-a828-e991e020d8e0
+		summarizeBy: sum
+		sourceColumn: Sales_Thousands_SAR
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Transactions
+		dataType: double
+		lineageTag: 90b34169-81e0-435e-97c8-969d2b70a529
+		summarizeBy: sum
+		sourceColumn: Transactions
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Transaction_Date
+		dataType: dateTime
+		formatString: dd/mmmm/yyyy
+		lineageTag: 2178d0a5-4ff3-48cf-aa15-27bfcc318944
+		summarizeBy: none
+		sourceColumn: Transaction_Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+		annotation PBI_FormatHint = {"isDateTimeCustom":true}
+
+	column Sales_SAR
+		dataType: double
+		lineageTag: 4d40ea2a-3f0b-46e4-8520-cd1fdbc86074
+		summarizeBy: sum
+		sourceColumn: Sales_SAR
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Date_Year_Check = YEAR('Sheet1'[Transaction_Date])
+		formatString: 0
+		lineageTag: ebfe2c06-2733-4590-b535-3bc024713055
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Sheet1 = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents("C:\Users\danak\Downloads\pos-transactions.xlsx"), null, true),
+				    Sheet1_Sheet = Source{[Item="Sheet1",Kind="Sheet"]}[Data],
+				    #"Promoted Headers" = Table.PromoteHeaders(Sheet1_Sheet, [PromoteAllScalars=true]),
+				    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"Periodicity", type text}, {"Year", Int64.Type}, {"Quarter", type text}, {"Month", type text}, {"Indicator", type text}, {"Value in Different Units", type number}, {"Date", type text}, {"Date_Object", type date}}),
+				    #"Filtered Rows" = Table.SelectRows(#"Changed Type", each ([Periodicity] = "Monthly") and ([Indicator] = "E-Commerce Transactions Using Mada Cards : Number of Transactions" or [Indicator] = "E-Commerce Transactions Using Mada Cards : Sales (In Thousand Riyals)")),
+				    #"Pivoted Column" = Table.Pivot(#"Filtered Rows", List.Distinct(#"Filtered Rows"[Indicator]), "Indicator", "Value in Different Units"),
+				    #"Removed Columns" = Table.RemoveColumns(#"Pivoted Column",{"Date_Object"}),
+				    #"Added Custom" = Table.AddColumn(
+				    #"Removed Columns",
+				    "Date.1",
+				    each #date(
+				        Number.From([Year]),
+				        List.PositionOf(
+				            {"JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"},
+				            Text.Upper(Text.Trim([Month]))
+				        ) + 1,
+				        1
+				    ),
+				    type date
+				),
+				    #"Changed Type1" = Table.TransformColumnTypes(#"Added Custom",{{"Date.1", type date}}),
+				    #"Renamed Columns" = Table.RenameColumns(#"Changed Type1",{{"E-Commerce Transactions Using Mada Cards : Sales (In Thousand Riyals)", "Sales_Thousands_SAR"}, {"E-Commerce Transactions Using Mada Cards : Number of Transactions", "Transactions"}, {"Date.1", "Transaction_Date"}}),
+				    #"Removed Columns1" = Table.RemoveColumns(#"Renamed Columns",{"Periodicity", "Quarter", "Date"}),
+				    #"Added Custom1" = Table.AddColumn(#"Removed Columns1", "Sales_SAR", each [Sales_Thousands_SAR] * 1000),
+				    #"Changed Type2" = Table.TransformColumnTypes(#"Added Custom1",{{"Sales_SAR", type number}})
+				in
+				    #"Changed Type2"
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

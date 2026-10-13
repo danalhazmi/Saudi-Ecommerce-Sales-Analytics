@@ -1,0 +1,4 @@
+relationship cb9fcdbe-66ee-f432-4db9-52a7859ca370
+	fromColumn: Sheet1.Transaction_Date
+	toColumn: Calendar.Date
+
